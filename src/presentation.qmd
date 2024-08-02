@@ -1,0 +1,1350 @@
+---
+title: "Political Landscape of Bremen, A Data Science Approach"
+author: "Modou Lamin Manjang"
+Mat-number : "30006400"
+Supervisor: "Prof. Jan Lorenz & Prof Wilhelm Adalbert"
+format: 
+  revealjs:
+    smaller: true
+    scrollable: true
+    slide-number: true
+---
+
+## Introduction {.smaller}
+###  Bremen Overview
+- The smallest and least populous of Germany's 16 state consisting of two major cities: Bremen and Bremerhaven
+- Known for it s rich maritime economy, cultural heritage and cosmopolitan outlook
+
+### Political Overview
+- SPD has dominated since 1946, holding a center-left position.
+- Other significant parties: Die Linke (far-left), CDU (center-right), FDP (center-right), Die Grünen (left-wing), AfD (far-right), and BIW (right-wing, local issues).
+
+
+
+## Reseach Objective and questions {.smaller}
+### Aims and Objective
+
+- Conduct a systematic analysis of the political landscape in Bremen using data science methods.
+- Reveal underlying patterns and shifts in political alignment among voters.
+- Visualize correlations between political parties based on voting data.
+
+### Research Questions
+
+- How much is the voter trend changing in Bremen and Bremerhaven over the last four (4) elections and what does this signify for Bremen as a state?
+- Can dimensionality reduction techniques (PCA, MDS, and T-SNE) reveal any significant shifts or trends in the political landscape of Bremen?
+
+
+## Methodology {.smaller}
+### Data Collection and Processing:
+- Data sourced from **Statistisches Landesamt** Bremen for accuracy and reliability.
+- Applied validity checks and removed invalid votes to ensure a sound foundation for analysis.
+
+### Data Pre-processing
+- **Co-Voter Matrix**
+  - Capture voter overlap between pairs of political parties.
+  - Calculated pairwise percentages of voters who voted for both parties.
+  - Created a matrix where rows and columns represent political parties, and values represent the co-voter percentages.
+  ![](../img/Co%20voter%20percentages%20data%20process.png){fig-align="center"}
+- **Union-to-Intersection Ratio Matrix**: 
+  - Measure the distinctness of voter bases between pairs of political parties.
+  - Calculated the ratio of the total number of unique voters for both parties (union) to the number of voters who voted for both parties (intersection).
+  - Created a matrix where rows and columns represent political parties, and values represent the union-to-intersection ratios.
+![](../img/union-to-intersection%20ratio%20data%20processing.png){fig-align="center"}
+
+
+## Data Description and Preprossing {.smaller}
+### The Dual Vote System in Germany:
+- Combines direct and proportional representation.
+- **First Vote (Erststimme)**: For an individual candidate to represent the voter's local constituency.
+- **Second Vote (Zweitstimme)**: For a political party's list in the voter's state, determining overall proportional representation.
+
+### The Five Vote system In Germany
+- The five-vote system in Bremen allows each voter to distribute five votes among candidates and parties, either concentrating all votes on a single candidate or party or spreading them across multiple candidates and parties, thereby providing greater flexibility and personalization in the voting process.
+![](../img/Stimmer_.jpg){fig-align="center"}
+
+### Data Processing
+- Removed invalid votes, leaving only valid votes for analysis.
+Example: Bremen 2011 data had 232,883 voters with 225,621 valid voters and 7,262 invalid voters.
+- Cleaned data was formatted to extract valuable information like votes for each party and candidate.
+![](../img/sample%20dataset.png.jpg){fig-align="center"}
+
+
+## Exploratory Analysis  bremen
+### Visual Analysis of Voting Trends (Bremen):
+
+```{python}
+import pandas as pd
+
+party_codes = pd.read_excel("../Data/Parteien-Codes.xlsx")
+
+def count_unique_numbers(df):
+  df = df.astype(int)
+  unique_counts = {}
+  for index, row in df.iterrows():
+      for value in row:
+          if value > 0:
+              unique_counts[value] = unique_counts.get(value, 0) + 1
+  unique_counts_df = pd.DataFrame(list(unique_counts.items()), columns=['Number', 'Count'])
+  return unique_counts_df
+
+def get_hundredth(number):
+    return (number // 100) *100
+
+#Merged with party code
+def party_percentage_dist(df, party_codes, year, district):
+    # Merge with the party code
+    unique_counts_df = count_unique_numbers(df)
+    unique_counts_df['party_id'] = unique_counts_df['Number'].apply(get_hundredth)
+    
+    party_votes = unique_counts_df.groupby('party_id')['Count'].sum().reset_index()
+    party_votes.columns = ['party_id', 'total_count']
+    total_votes = party_votes['total_count'].sum()
+    party_votes['percentage %'] = ((party_votes['total_count'] / total_votes) * 100).round(2)
+    
+    party_codes = party_codes[(party_codes['year'] == year) & (party_codes['district'] == district)][['party_id', 'Kurzform', 'Colour']]
+    merged_df = pd.merge(party_votes, party_codes, how='inner', on='party_id')
+    
+    #table_party = tabulate(merged_df, headers='keys', tablefmt='fancy_grid')
+    return merged_df
+
+df_2011 = pd.read_excel('../Data/Stimmzettel 2011 Wahlbereich Bremen Vertrag.xlsx')
+df_2011 = df_2011.iloc[0:]
+new_headers = df_2011.iloc[0]
+df_2011.columns = new_headers
+df_2011 =df_2011[1:]
+df_2011.isnull()
+df_2011.fillna(0, inplace=True)
+Valid_count_2011 = df_2011[df_2011['Bemerkungen'] == 0].shape[0]
+#print(f"There are a total of {df_2011.shape[0]} voters in the 2011 Bremen data set of which {Valid_count} successfully cast their votes, there were {df_2011.shape[0] - Valid_count_2011} invalid votes")
+df_2011 = df_2011[df_2011['Bemerkungen'] == 0]
+df_2011 = df_2011.drop(columns="Bemerkungen")
+df_2011 = df_2011.astype(str) 
+#df_2011.to_pickle("../../Data/prepared_date/Bremen_2011.pkl")
+year = 2011
+district = 'Bremen'
+bremen_2011_percent = party_percentage_dist(df_2011, party_codes, year, district)
+
+
+df_2015 = pd.read_excel("../Data/Stimmzettel 2015 Wahlbereich Bremen Vertrag.xlsx")
+df_2015 = df_2015.iloc[0:]
+new_headers = df_2015.iloc[0]
+df_2015.columns = new_headers
+df_2015 =df_2015[1:]
+df_2015 = df_2015.reset_index(drop=True)
+df_2015.fillna(0, inplace=True)
+Valid_count_2015 = df_2015[df_2015['Bemerkungen'] == 0].shape[0]
+#print(f"There are a total of {df_2015.shape[0]} voters in the 2015 data set of which {Valid_count_2015} successfully cast their votes, there were {df_2015.shape[0] - Valid_count_2015} invalid votes")
+df_2015 = df_2015[df_2015['Bemerkungen'] == 0]
+df_2015 = df_2015.drop(columns="Bemerkungen") 
+df_2015 = df_2015.astype(str)
+#df_2015.to_pickle("../../Data/prepared_date/Bremen_2015.pkl")
+
+year = 2015
+district = 'Bremen'
+bremen_2015_percent = party_percentage_dist(df_2015, party_codes, year, district)
+
+
+df_2019 = pd.read_excel("../Data/Stimmzettel 2019 Wahlbereich Bremen Vertrag.xlsx")
+df_2019.fillna(0, inplace=True)
+Valid_count_2019 = df_2019[df_2019['Grund Ungültigkeit'] == 0].shape[0]
+#print(f"There are a total of {df_2019.shape[0]} voters in the 2019 data set of which {Valid_count_2019} successfully cast their votes, there were {df_2019.shape[0] - Valid_count_2019} invalid votes")
+df_2019 = df_2019[df_2019['Grund Ungültigkeit'] == 0]
+df_2019 = df_2019.drop(columns="Grund Ungültigkeit") 
+df_2019.rename(columns={'Stimme1': 'Stimme 1', 'Stimme2':'Stimme 2', 'Stimme3':'Stimme 3', 'Stimme4':'Stimme 4', 'Stimme5':'Stimme 5'}, inplace=True)
+df_2019 = df_2019.astype(int).astype(str)
+#df_2019.to_pickle("../../Data/prepared_date/Bremen_2019.pkl")
+
+year = 2019
+district = 'Bremen'
+bremen_2019_percent = party_percentage_dist(df_2019, party_codes, year, district)
+
+
+df_2023 = pd.read_excel("../Data/Stimmzettel 2023 Wahlbereich Bremen Vertrag.xlsx")
+df_2023 = df_2023.iloc[0:]
+new_headers = df_2023.iloc[0]
+df_2023.columns = new_headers
+df_2023 =df_2023[1:]
+df_2023 = df_2023.reset_index(drop=True)
+Valid_count_2023 = df_2023[df_2023['Gültigkeit'] == 'Gültig'].shape[0]
+#print(f"There are a total of {df_2023.shape[0]} voters in the 2023 bremen data set of which {Valid_count_2023} successfully cast their votes, there were {df_2023.shape[0] - Valid_count_2023} invalid votes")
+df_2023.drop(df_2023[df_2023['Gültigkeit'] == 'Ungültig (per Beschluss)'].index, inplace = True)
+df_2023.drop(df_2023[df_2023['Gültigkeit'] == 'Ungültig'].index, inplace = True)
+df_2023 = df_2023.drop(columns="Gültigkeit")
+df_2023 = df_2023.drop(columns="Bemerkung")
+df_2023.fillna(0, inplace=True)
+df_2023 = df_2023.astype(str)
+#df_2023.to_pickle("../../Data/prepared_date/Bremen_2023.pkl")
+
+year = 2023
+district = 'Bremen'
+bremen_2023_percent = party_percentage_dist(df_2023, party_codes, year, district)
+```
+
+```{python}
+import matplotlib.pyplot as plt
+
+df_2011 = bremen_2011_percent[['Kurzform', 'percentage %', 'Colour']].rename(columns={'percentage %': '2011'})
+df_2015 = bremen_2015_percent[['Kurzform', 'percentage %', 'Colour']].rename(columns={'percentage %': '2015'})
+df_2019 = bremen_2019_percent[['Kurzform', 'percentage %', 'Colour']].rename(columns={'percentage %': '2019'})
+df_2023 = bremen_2023_percent[['Kurzform', 'percentage %', 'Colour']].rename(columns={'percentage %': '2023'})
+
+merged_df = df_2011.merge(df_2015, on=['Kurzform', 'Colour'], how='outer')
+merged_df = merged_df.merge(df_2019, on=['Kurzform', 'Colour'], how='outer')
+merged_df = merged_df.merge(df_2023, on=['Kurzform', 'Colour'], how='outer')
+
+merged_df = merged_df.fillna({'2011': 0, '2015': 0, '2019': 0, '2023': 0})
+merged_df['Colour'] = merged_df['Colour'].fillna('grey')
+others_df = merged_df[merged_df['Colour'] == 'grey']
+others_sums = others_df[['2011', '2015', '2019', '2023']].sum()
+others_sums['Kurzform'] = 'Others'
+others_sums['Colour'] = 'grey'
+
+filtered_df = merged_df[merged_df['Colour'] != 'grey']
+final_df = pd.concat([filtered_df, pd.DataFrame([others_sums])], ignore_index=True)
+
+final_df.set_index('Kurzform', inplace=True)
+
+transposed_df = final_df[['2011', '2015', '2019', '2023']].T
+
+plt.figure(figsize=(8, 6))
+for party in transposed_df.columns:
+    plt.plot(transposed_df.index, transposed_df[party], marker='o', label=party, color=final_df.loc[party, 'Colour'])
+
+plt.title('Votes of Each Party in Bremen Elections (2011-2023)')
+plt.xlabel('Year')
+plt.ylabel('Vote Percentage')
+plt.legend(title='Party', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.grid(True)
+plt.tight_layout()
+plt.show()  
+```
+
+## Exploratory Analysis  bremen
+### Visual Analysis of Voting Trends (Bremerhaven):
+
+```{python}
+import pandas as pd
+
+party_codes = pd.read_excel("../Data/Parteien-Codes.xlsx")
+
+def count_unique_numbers(df):
+  df = df.astype(int)
+  unique_counts = {}
+  for index, row in df.iterrows():
+      for value in row:
+          if value > 0:
+              unique_counts[value] = unique_counts.get(value, 0) + 1
+  unique_counts_df = pd.DataFrame(list(unique_counts.items()), columns=['Number', 'Count'])
+  return unique_counts_df
+
+def get_hundredth(number):
+    return (number // 100) *100
+
+#Merged with party code
+def party_percentage_dist(df, party_codes, year, district):
+    # Merge with the party code
+    unique_counts_df = count_unique_numbers(df)
+    unique_counts_df['party_id'] = unique_counts_df['Number'].apply(get_hundredth)
+    
+    party_votes = unique_counts_df.groupby('party_id')['Count'].sum().reset_index()
+    party_votes.columns = ['party_id', 'total_count']
+    total_votes = party_votes['total_count'].sum()
+    party_votes['percentage %'] = ((party_votes['total_count'] / total_votes) * 100).round(2)
+    
+    party_codes = party_codes[(party_codes['year'] == year) & (party_codes['district'] == district)][['party_id', 'Kurzform', 'Colour']]
+    merged_df = pd.merge(party_votes, party_codes, how='inner', on='party_id')
+    
+    #table_party = tabulate(merged_df, headers='keys', tablefmt='fancy_grid')
+    return merged_df
+
+df_2011_brmhvn = pd.read_excel('../Data/Stimmzettel 2011 Wahlbereich Bremerhaven Vertrag.xlsx')
+df_2011_brmhvn = df_2011_brmhvn.iloc[0:]
+new_headers = df_2011_brmhvn.iloc[0]
+df_2011_brmhvn.columns = new_headers
+df_2011_brmhvn =df_2011_brmhvn[1:]
+df_2011_brmhvn.isnull()
+df_2011_brmhvn.fillna(0, inplace=True)
+Valid_count_2011 = df_2011_brmhvn[df_2011_brmhvn['Bemerkungen'] == 0].shape[0]
+#print(f"There are a total of {df_2011_brmhvn.shape[0]} voters in the 2011 Bremerhaven data set of which {Valid_count_2011} successfully cast their votes, there were {df_2011_brmhvn.shape[0] - Valid_count_2011} invalid votes")
+df_2011_brmhvn = df_2011_brmhvn[df_2011_brmhvn['Bemerkungen'] == 0]
+df_2011_brmhvn = df_2011_brmhvn.drop(columns="Bemerkungen")
+df_2011_brmhvn = df_2011_brmhvn.astype(str) 
+df_2011_brmhvn.to_pickle("../Data/prepared_date/Bremerhaven_2011.pkl")
+year = 2011
+district = 'Bremerhaven'
+Bremerhaven_2011_percent = party_percentage_dist(df_2011_brmhvn, party_codes, year, district)
+#Bremerhaven_2011_percent.to_pickle("../Data/prepared_date/bremerhaven_2011_party_percentages.pkl")
+
+df_2015_brmhvn = pd.read_excel("../Data/Stimmzettel 2015 Wahlbereich Bremerhaven Vertrag.xlsx")
+df_2015_brmhvn = df_2015_brmhvn.iloc[0:]
+new_headers = df_2015_brmhvn.iloc[0]
+df_2015_brmhvn.columns = new_headers
+df_2015_brmhvn =df_2015_brmhvn[1:]
+df_2015_brmhvn = df_2015_brmhvn.reset_index(drop=True)
+df_2015_brmhvn.fillna(0, inplace=True)
+Valid_count_2015 = df_2015_brmhvn[df_2015_brmhvn['Bemerkungen'] == 0].shape[0]
+#print(f"There are a total of {df_2015_brmhvn.shape[0]} voters in the 2015 Bremerhaven data set of which {Valid_count_2015} successfully cast their votes, there were {df_2015_brmhvn.shape[0] - Valid_count_2015} invalid votes")
+df_2015_brmhvn = df_2015_brmhvn[df_2015_brmhvn['Bemerkungen'] == 0]
+df_2015_brmhvn = df_2015_brmhvn.drop(columns="Bemerkungen") 
+df_2015_brmhvn = df_2015_brmhvn.astype(str)
+df_2015_brmhvn.to_pickle("../Data/prepared_date/Bremerhaven_2015.pkl")
+
+year = 2015
+district = 'Bremerhaven'
+Bremerhaven_2015_percent = party_percentage_dist(df_2015_brmhvn, party_codes, year, district)
+#Bremerhaven_2015_percent.to_pickle("../Data/prepared_date/bremerhaven_2015_party_percentages.pkl")
+
+df_2019_brmhvn = pd.read_excel("../Data/Stimmzettel 2019 Bürgerschaft Bremerhaven Vertrag.xlsx")
+df_2019_brmhvn.fillna(0, inplace=True)
+Valid_count_2019 = df_2019_brmhvn[df_2019_brmhvn['Grund Ungültigkeit'] == 0].shape[0]
+#print(f"There are a total of {df_2019_brmhvn.shape[0]} voters in the 2019 Bremerhaven data set of which {Valid_count_2019} successfully cast their votes, there were {df_2019_brmhvn.shape[0] - Valid_count_2019} invalid votes")
+df_2019_brmhvn = df_2019_brmhvn[df_2019_brmhvn['Grund Ungültigkeit'] == 0]
+df_2019_brmhvn = df_2019_brmhvn.drop(columns="Grund Ungültigkeit") 
+df_2019_brmhvn.rename(columns={'Stimme1': 'Stimme 1', 'Stimme2':'Stimme 2', 'Stimme3':'Stimme 3', 'Stimme4':'Stimme 4', 'Stimme5':'Stimme 5'}, inplace=True)
+df_2019_brmhvn = df_2019_brmhvn.astype(int).astype(str)
+df_2019_brmhvn.to_pickle("../Data/prepared_date/Bremerhaven_2019.pkl")
+
+year = 2019
+district = 'Bremerhaven'
+Bremerhaven_2019_percent = party_percentage_dist(df_2019_brmhvn, party_codes, year, district)
+#Bremerhaven_2019_percent.to_pickle("../Data/prepared_date/bremerhaven_2019_party_percentages.pkl")
+
+
+df_2023_brmhvn = pd.read_excel("../Data/Stimmzettel 2023 Wahlbereich Bremerhaven Vertrag.xlsx")
+df_2023_brmhvn = df_2023_brmhvn.iloc[0:]
+new_headers = df_2023_brmhvn.iloc[0]
+df_2023_brmhvn.columns = new_headers
+df_2023_brmhvn =df_2023_brmhvn[1:]
+df_2023_brmhvn = df_2023_brmhvn.reset_index(drop=True)
+Valid_count_2023 = df_2023_brmhvn[df_2023_brmhvn['Gültigkeit'] == 'Gültig'].shape[0]
+#print(f"There are a total of {df_2023_brmhvn.shape[0]} voters in the 2023 Bremerhaven data set of which {Valid_count_2023} successfully cast their votes, there were {df_2023_brmhvn.shape[0] - Valid_count_2023} invalid votes")
+df_2023_brmhvn.drop(df_2023_brmhvn[df_2023_brmhvn['Gültigkeit'] == 'Ungültig (per Beschluss)'].index, inplace = True)
+df_2023_brmhvn.drop(df_2023_brmhvn[df_2023_brmhvn['Gültigkeit'] == 'Ungültig'].index, inplace = True)
+df_2023_brmhvn = df_2023_brmhvn.drop(columns="Gültigkeit")
+df_2023_brmhvn = df_2023_brmhvn.drop(columns="Bemerkung")
+df_2023_brmhvn.fillna(0, inplace=True)
+df_2023_brmhvn = df_2023_brmhvn.astype(str)
+df_2023_brmhvn.to_pickle("../Data/prepared_date/Bremerhaven_2023.pkl")
+
+year = 2023
+district = 'Bremerhaven'
+Bremerhaven_2023_percent = party_percentage_dist(df_2023_brmhvn, party_codes, year, district)
+#Bremerhaven_2023_percent.to_pickle("../Data/prepared_date/bremerhaven_2023_party_percentages.pkl")
+
+```
+ 
+```{python}
+df_2011_brmhvn = Bremerhaven_2011_percent[['Kurzform', 'percentage %', 'Colour']].rename(columns={'percentage %': '2011'})
+df_2015_brmhvn = Bremerhaven_2015_percent[['Kurzform', 'percentage %', 'Colour']].rename(columns={'percentage %': '2015'})
+df_2019_brmhvn = Bremerhaven_2019_percent[['Kurzform', 'percentage %', 'Colour']].rename(columns={'percentage %': '2019'})
+df_2023_brmhvn = Bremerhaven_2023_percent[['Kurzform', 'percentage %', 'Colour']].rename(columns={'percentage %': '2023'})
+
+merged_df = df_2011_brmhvn.merge(df_2015_brmhvn, on=['Kurzform', 'Colour'], how='outer')
+merged_df = merged_df.merge(df_2019_brmhvn, on=['Kurzform', 'Colour'], how='outer')
+merged_df = merged_df.merge(df_2023_brmhvn, on=['Kurzform', 'Colour'], how='outer')
+
+merged_df = merged_df.fillna({'2011': 0, '2015': 0, '2019': 0, '2023': 0})
+merged_df['Colour'] = merged_df['Colour'].fillna('grey')
+others_df = merged_df[merged_df['Colour'] == 'grey']
+others_sums = others_df[['2011', '2015', '2019', '2023']].sum()
+others_sums['Kurzform'] = 'Others'
+others_sums['Colour'] = 'grey'
+
+filtered_df = merged_df[merged_df['Colour'] != 'grey']
+final_df = pd.concat([filtered_df, pd.DataFrame([others_sums])], ignore_index=True)
+
+final_df.set_index('Kurzform', inplace=True)
+
+transposed_df = final_df[['2011', '2015', '2019', '2023']].T
+
+plt.figure(figsize=(8, 6))
+for party in transposed_df.columns:
+    plt.plot(transposed_df.index, transposed_df[party], marker='o', label=party, color=final_df.loc[party, 'Colour'])
+
+plt.title('Votes of Each Party in Bremerhaven Elections (2011-2023)')
+plt.xlabel('Year')
+plt.ylabel('Vote Percentage')
+plt.legend(title='Party', bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.grid(True)
+plt.tight_layout()
+plt.show()  
+```
+
+
+## Implementation {.smaller}
+### Dimensionality Reduction Techniques
+:::: {.columns}
+::: {.column width="30%"}
+- **Principal Component Analysis (PCA)**
+   - Transforms data into a new coordinate system where the greatest variance lies on the first axes (principal components) by capturing major dimensions of variation.
+   - First Principal Component captures the most variance. And second Principal Component orthogonal to the first, capturing second largest variance.
+   - Emphasizes significant data features.
+:::
+::: {.column width="30%"}
+- **Multidimensional Scaling (MDS)**
+   - Represents similarities/dissimilarities between data points as distances in a low-dimensional space by maintaining relative distances between high-dimensional data points.
+   -  Double-centering applied to distance matrix.<br>- Eigen decomposition performed on centered matrix.
+   -  Preserves relative distances, revealing complex relationships.
+:::
+::: {.column width="30%"}
+- **t-Distributed Stochastic Neighbour Embedding (t-SNE)**
+   - Non-linear technique preserving local data structure.<br>- Maps high-dimensional data into lower dimensions while maintaining similarities.
+   - Computes pairwise similarities using Gaussian Kernel.<br>- Uses t-distribution in low-dimensional space.<br>- Minimizes Kullback-Leibler divergence for accurate representation of local structures.
+   - Preserves Clusters or neighborhood propotionality
+:::
+::::
+
+## Principal Component Analysis (PCA) {.smaller}
+### Steps to Compute PCA
+1. Standardisation
+   - Transform the data to have a mean of zero and a standard deviation of one.
+   - Ensures that each feature contributes equally to the analysis.
+  $$
+   standard value, z = \frac{∣value - mean∣}{Standard deviation} 
+   $$
+
+2. Covariance Matrix Computation
+   - Calculate the covariance matrix to understand how variables in the dataset vary together.
+   - This helps identify the direction of maximum variance
+3. Eigenvalues and Eigenvectors Calculation
+   - Determine the eigenvalues and eigenvectors from the covariance matrix.
+   - Eigenvalues indicate the magnitude of variance along each eigenvector (principal component).
+4. Principal Component Selection
+   - Choose the top k eigenvectors (with the highest eigenvalues) to form the new basis.
+   - Transform the original dataset using these principal components to reduce dimensionality.
+
+## Multidimensional Scaling (MDS) {.smaller}
+### Steps to Compute MDS
+1. Calculate the Distance Matrix
+   - Compute the dissimilarities between data points using an appropriate distance metric (e.g., Euclidean distance).
+   - For exapample the cp-voter matrix,
+  $$
+ D = 1 - co-voter percentage
+   $$
+
+2. Double Center the Distance Matrix
+   - Transform the distance matrix to a format suitable for eigen decomposition.
+   - This involves subtracting the row and column means and adding the overall mean.
+
+3. Eigenvalues and Eigenvectors Calculation
+   - Perform eigen decomposition on the centered distance matrix to obtain eigenvalues and eigenvectors.
+   - The eigenvectors form the new dimensions, while eigenvalues indicate the variance captured.
+  
+4. Construct Low-Dimensional Representation
+   - Select the top k eigenvectors with the highest eigenvalues.
+   - Multiply the eigenvectors by the square root of their corresponding eigenvalues to get the coordinates in the reduced space.
+   - Plot the data in the new low-dimensional space to visualize relationships and structures.
+
+
+
+## t-Distributed Stochastic Neighbor Embedding (t-SNE)
+### Steps to Compute t-SNE
+1. Pairwise Similarities in High Dimensional Space
+   - Calculate the pairwise similarities between data point using gaussian kernal.
+   - Form probability distribution of the similarities
+
+2. Initialize Low-Dimiensional Map
+   - Initial data points in the low-dimensional space while preserving similirities.
+   - Random initialization or using another dimensionality reduction technique such as PCA can be used
+
+3. Compute Pairwise Similarities in Low-Dimensional Space
+   - Calculate the pairwise similarities in the low-dimensional space using the t-distribution.
+   - The t-distribution has heavier tails than the Gaussian, reducing the impact of outliers.
+
+4. Minimise Kullback-Leibler Divergence
+   - Minimize the KL divergence between the high-dimensional and low-dimensional distributions using gradient descent.
+   - This step iteratively refines the positions of the data points to preserve the local structure.
+
+5. Iterate until Convergence
+   - Perform several iterations of gradient descent to ensure  the cost function (KL divergence) converge
+   - The final positions of the data points in the low-dimensional space represent the structure of the original high-dimensional data.
+
+
+
+
+
+
+
+
+## PCA Results
+### PCA on Average Co Voter Percentage - Bremen 
+```{python}
+#Bremen
+# -----------------------------
+# read the party codes
+#-----------------------
+party_codes = pd.read_excel("../Data/Parteien-Codes.xlsx")
+party_codes_2011 = party_codes[(party_codes['year'] == 2011) & (party_codes['district'] == 
+                    'Bremen')][['party_id', 'Kurzform', 'Colour']]
+party_codes_2015 = party_codes[(party_codes['year'] == 2015) & (party_codes['district'] == 
+                    'Bremen')][['party_id', 'Kurzform',  'Colour']]
+party_codes_2019 = party_codes[(party_codes['year'] == 2019) & (party_codes['district'] == 
+                    'Bremen')][['party_id', 'Kurzform',  'Colour']]
+party_codes_2023 = party_codes[(party_codes['year'] == 2023) & (party_codes['district'] == 
+                    'Bremen')][['party_id', 'Kurzform',  'Colour']]
+#--------------------
+# Load datasets and get the numbers of voters for each party
+#------
+df_2011 = pd.read_pickle("../Data/prepared_date/Bremen_2011.pkl")
+df_2015 = pd.read_pickle("../Data/prepared_date/Bremen_2015.pkl")
+df_2019 = pd.read_pickle("../Data/prepared_date/Bremen_2019.pkl")
+df_2023 = pd.read_pickle("../Data/prepared_date/Bremen_2023.pkl")
+
+
+def convert_to_hundredth(df):
+    df = df.applymap(int)
+    
+    df = df.applymap(lambda x: (x // 100) * 100)
+    
+    return df
+
+df_bre_2011 = convert_to_hundredth(df_2011)
+df_bre_2015 = convert_to_hundredth(df_2015)
+df_bre_2019 = convert_to_hundredth(df_2019)
+df_bre_2023 = convert_to_hundredth(df_2023)
+
+############ -----------------------------
+#Convert the party codes to names
+#---------------------------
+
+def replace_codes_with_names(df_data, df_codes):
+    merged_columns = []
+
+    for code_column in ['Stimme 1', 'Stimme 2', 'Stimme 3', 'Stimme 4', 'Stimme 5']:
+        merged_df = pd.merge(df_data, df_codes, how='left', left_on=code_column, right_on='party_id')
+        
+        merged_df.drop(columns=[col for col in merged_df.columns if col != 'Kurzform'], inplace=True)
+        
+        merged_df.rename(columns={'Kurzform': code_column}, inplace=True)
+        
+        merged_columns.append(merged_df)
+
+    final_df = pd.concat(merged_columns, axis=1)
+    
+    return final_df
+
+df_bre_2011_prty = replace_codes_with_names(df_bre_2011, party_codes_2011)
+df_bre_2015_prty = replace_codes_with_names(df_bre_2015, party_codes_2015)
+df_bre_2019_prty = replace_codes_with_names(df_bre_2019, party_codes_2019)
+df_bre_2023_prty = replace_codes_with_names(df_bre_2023, party_codes_2023)
+#--------------------------
+# Function to get total voters for each pary
+#---------------------------
+def count_total_voters(df):
+    df = df.dropna()
+
+    unique_counts = {}
+
+    for _, row in df.iterrows():
+        unique_values_in_row = set(row)
+
+        for value in unique_values_in_row:
+            unique_counts[value] = unique_counts.get(value, 0) + 1
+
+    # Convert the dictionary to a DataFrame
+    unique_counts_df = pd.DataFrame(list(unique_counts.items()), columns=['Party_id', 'Total_voters'])
+    #df_party = df_party_pairs.merge(df_total_voters, how='left', left_on='Party_Code_A', right_on='Party_id')
+
+    return unique_counts_df
+
+df_2011_total_voters = count_total_voters(df_bre_2011_prty)
+df_2015_total_voters = count_total_voters(df_bre_2015_prty)
+df_2019_total_voters = count_total_voters(df_bre_2019_prty)
+df_2023_total_voters = count_total_voters(df_bre_2023_prty)
+```
+ 
+
+```{python}
+from collections import Counter
+from itertools import combinations
+#---------------------------------
+# Generate Uniqure pairs of parties that voters voted for
+# ---------------------------
+
+def unique_pairs_with_count(df):
+    df = df.applymap(int)
+    pair_counter = Counter()
+
+    for index, row in df.iterrows():
+        row_values = [(x // 100) * 100 for x in row if x!= 0]
+
+        unique_pairs = set(combinations(row_values, 2))
+
+        pair_counter.update(unique_pairs)
+
+    pair_counts_df = pd.DataFrame(pair_counter.items(), columns=['Pair', 'Count'])
+
+    pair_counts_df[['Party_Code_A', 'Party_Code_B']] = pd.DataFrame(pair_counts_df['Pair'].tolist())
+    pair_counts_df = pair_counts_df[['Party_Code_A', 'Party_Code_B', 'Count']]
+    
+    return pair_counts_df
+
+df_2011_pair = unique_pairs_with_count(df_2011)
+df_2015_pair = unique_pairs_with_count(df_2015)
+df_2019_pair = unique_pairs_with_count(df_2019)
+df_2023_pair = unique_pairs_with_count(df_2023)
+
+#------------------------
+# Replace party codes with party names in the covoter dataframe 
+#-------------------------
+
+def merge_and_clean(df, party_codes):
+    #df_merged= df.merge(party_votes, how='left', left_on ='Party_Code_A', right_on= ['Party_id'])
+    # Merge with party codes for party A
+    df_merged = df.merge(party_codes, how='left', left_on='Party_Code_A', right_on='party_id')
+    df_merged.drop(columns=['party_id'], inplace=True)
+    df_merged.rename(columns={'Kurzform': 'party_A'}, inplace=True)
+    
+    # Merge with party codes for party B
+    df_merged = df_merged.merge(party_codes, how='left', left_on='Party_Code_B', right_on='party_id')
+    df_merged.drop(columns=['party_id'], inplace=True)
+    df_merged.rename(columns={'Kurzform': 'party_B'}, inplace=True)
+    
+    return df_merged
+
+df_2011_party_pairs = merge_and_clean(df_2011_pair, party_codes_2011)
+df_2015_party_pairs = merge_and_clean(df_2015_pair, party_codes_2015)
+df_2019_party_pairs = merge_and_clean(df_2019_pair, party_codes_2019)
+df_2023_party_pairs = merge_and_clean(df_2023_pair, party_codes_2023)
+
+# --------------------------------
+# Get the avaerage percentage of co voters to compute the matrix
+# --------------------------------
+
+def compute_party_voting_percentages(df_party_pairs, df_total_voters):
+    df_party = df_party_pairs.merge(df_total_voters, how='left', left_on='party_A', right_on='Party_id')
+    
+    df_party['Percentage_A_voted_B'] = (df_party['Count'] / df_party['Total_voters']) * 100
+    
+    df_party.drop(columns=['Total_voters'], inplace=True)
+    
+    df_party = df_party.merge(df_total_voters, how='left', left_on='party_B', right_on='Party_id', suffixes=('_A', '_B'))
+    
+    df_party['Percentage_B_voted_A'] = (df_party['Count'] / df_party['Total_voters']) * 100
+    
+    df_party.drop(columns=['Total_voters'], inplace=True)
+    
+    df_party_result = df_party[['party_A', 'party_B', 'Count', 'Percentage_A_voted_B', 'Percentage_B_voted_A']]
+    
+    df_party_result['Average_percentage'] = ((df_party_result['Percentage_A_voted_B'] + df_party_result['Percentage_B_voted_A']) / 200).round(1)
+    
+    return df_party_result
+
+
+df_2011_party_percentages = compute_party_voting_percentages(df_2011_party_pairs,df_2011_total_voters)
+df_2015_party_percentages = compute_party_voting_percentages(df_2015_party_pairs,df_2015_total_voters)
+df_2019_party_percentages = compute_party_voting_percentages(df_2019_party_pairs,df_2019_total_voters)
+df_2023_party_percentages = compute_party_voting_percentages(df_2023_party_pairs,df_2023_total_voters)
+
+
+from PIL import Image, ImageDraw, ImageFont
+
+def create_percentage_matrix(df):
+    # Get unique values of party_A and party_B
+    unique_party_A = df['party_A'].unique()
+    unique_party_B = df['party_B'].unique()
+    
+    matrix = pd.DataFrame(index=unique_party_A, columns=unique_party_A)
+    
+    for party_A in unique_party_A:
+        for party_B in unique_party_A:
+            subset_df = df[(df['party_A'] == party_A) & (df['party_B'] == party_B)]
+            if not subset_df.empty:
+                average_percentage = subset_df['Average_percentage'].values[0] 
+                matrix.loc[party_A, party_B] = average_percentage
+    matrix.fillna(0, inplace=True)
+    # Mirror the lower triangle to the upper triangle
+    for i in range(len(matrix)):
+        for j in range(i):
+            matrix.iloc[i, j] = matrix.iloc[j, i]
+    
+    return matrix
+#print(f"This gives a Upper truangular matrix or Right trainagular, so I mirrowed the lower traingular matrix to the upper triangular to get a full symmetrix matrix")
+
+# Call the function with your DataFrame
+matrix_bre_2011 = create_percentage_matrix(df_2011_party_percentages)
+matrix_bre_2015 = create_percentage_matrix(df_2015_party_percentages)
+matrix_bre_2019 = create_percentage_matrix(df_2019_party_percentages)
+matrix_bre_2019 = matrix_bre_2019.astype(float)
+matrix_bre_2023 = create_percentage_matrix(df_2023_party_percentages)
+#print(tabulate(matrix_bre_2011, headers='keys', tablefmt='grid'))
+
+```
+
+```{python}
+#--------------------------------------
+# get function to create a matrix for the ration of the common voters to all voter
+#----------------------------------------- 
+
+def count_votes_for_pairs(df):
+    df = df.applymap(int)
+    pair_counter = Counter()
+    df['party_a_intersection_party_b'] = 0
+    df['party_a_union_party_b'] = 0 
+    for index, row in df.iterrows():
+        row_values = [(x // 100) * 100 for x in row if x!= 0]   
+        unique_pairs = set(combinations(row_values, 2)) 
+        pair_counter.update(unique_pairs)   
+    pair_counts_df = pd.DataFrame(pair_counter.items(), columns=['Pair', 'Count'])  
+    pair_counts_df[['Party_A', 'Party_Code_B']] = pd.DataFrame(pair_counts_df['Pair'].tolist())
+    #pair_counts_df = pair_counts_df[['Party_Code_A', 'Party_Code_B', 'Count']]
+    # Iterate over each row in the DataFrame
+    for index, row in df.iterrows():
+        party_a = row['Party_Code_A']
+        party_b = row['Party_Code_B']
+        
+        # Count votes for both parties and votes for either party
+        votes_for_both = df[(df['Party_Code_A'] == party_a) & (df['Party_Code_B'] == party_b)]['Count'].sum()
+        votes_for_either = df[(df['Party_Code_A'] == party_a) | (df['Party_Code_B'] == party_b)]['Count'].sum()
+        ratio_f = (votes_for_both / votes_for_either).round(2)
+        # Update the new columns with counts
+        df.loc[index, 'party_a_intersection_party_b'] = votes_for_both
+        df.loc[index, 'party_a_union_party_b'] = votes_for_either
+        df.loc[index, 'party_votes_ratio'] = ratio_f
+       
+    return df
+
+
+df_2011_pair_union = count_votes_for_pairs(df_2011_pair)
+df_2015_pair_union = count_votes_for_pairs(df_2015_pair)
+df_2019_pair_union = count_votes_for_pairs(df_2019_pair)
+df_2023_pair_union = count_votes_for_pairs(df_2023_pair)
+
+
+df_2011_party_pairs_ratio = merge_and_clean(df_2011_pair_union, party_codes_2011)
+df_2015_party_pairs_ratio = merge_and_clean(df_2015_pair_union, party_codes_2015)
+df_2019_party_pairs_ratio = merge_and_clean(df_2019_pair_union, party_codes_2019)
+df_2023_party_pairs_ratio = merge_and_clean(df_2023_pair_union, party_codes_2023)
+
+def create_ratio_matrix(df):
+    # Get unique values of party_A and party_B
+    unique_party_A = df['party_A'].unique()
+    unique_party_B = df['party_B'].unique()
+
+    matrix = pd.DataFrame(index=unique_party_A, columns=unique_party_B)
+    
+    # Iterate over each unique pair of parties and fill in the matrix with the average percentage
+    for party_A in unique_party_A:
+        for party_B in unique_party_B:
+            subset_df = df[(df['party_A'] == party_A) & (df['party_B'] == party_B)]
+            if not subset_df.empty:
+                voter_ratio = subset_df['party_votes_ratio'].values[0]   
+                matrix.loc[party_A, party_B] = voter_ratio
+    
+    matrix.fillna(0, inplace=True)
+
+    # Mirror the lower triangle to the upper triangle
+    for i in range(len(matrix)):
+        for j in range(i):
+            matrix.iloc[i, j] = matrix.iloc[j, i]
+    
+    return matrix
+
+matrix_bre_2011_ratio = create_ratio_matrix(df_2011_party_pairs_ratio)
+matrix_bre_2015_ratio = create_ratio_matrix(df_2015_party_pairs_ratio)
+matrix_bre_2019_ratio = create_ratio_matrix(df_2019_party_pairs_ratio)
+matrix_bre_2019_ratio = matrix_bre_2019_ratio.astype(float)
+matrix_bre_2023_ratio = create_ratio_matrix(df_2023_party_pairs_ratio) 
+#print(tabulate(matrix_bre_2011_ratio, headers='keys', tablefmt='grid'))
+``` 
+
+```{python}
+bremen_2011_percent = pd.read_pickle("../Data/prepared_date/bremen_2011_party_percentages.pkl")
+bre_2011_label_votes = bremen_2011_percent[['Kurzform', 'total_count', 'Colour']]
+bremen_2015_percent = pd.read_pickle("../Data/prepared_date/bremen_2015_party_percentages.pkl")
+bre_2015_label_votes = bremen_2015_percent[['Kurzform', 'total_count', 'Colour']]
+bremen_2019_percent = pd.read_pickle("../Data/prepared_date/bremen_2019_party_percentages.pkl")
+bre_2019_label_votes = bremen_2019_percent[['Kurzform', 'total_count', 'Colour']]
+bremen_2023_percent = pd.read_pickle("../Data/prepared_date/bremen_2023_party_percentages.pkl")
+bre_2023_label_votes = bremen_2023_percent[['Kurzform', 'total_count', 'Colour']]
+
+```
+
+
+```{python}
+# -----------------------------
+# read the party codes
+#-----------------------
+party_codes_brmhvn = pd.read_excel("../Data/Parteien-Codes.xlsx")
+party_codes_brmhvn_2011 = party_codes_brmhvn[(party_codes_brmhvn['year'] == 2011) & (party_codes_brmhvn['district'] == 
+                    'Bremerhaven')][['party_id', 'Kurzform', 'Colour']]
+party_codes_brmhvn_2015 = party_codes_brmhvn[(party_codes_brmhvn['year'] == 2015) & (party_codes_brmhvn['district'] == 
+                    'Bremerhaven')][['party_id', 'Kurzform',  'Colour']]
+party_codes_brmhvn_2019 = party_codes_brmhvn[(party_codes_brmhvn['year'] == 2019) & (party_codes_brmhvn['district'] == 
+                    'Bremerhaven')][['party_id', 'Kurzform',  'Colour']]
+party_codes_brmhvn_2023 = party_codes_brmhvn[(party_codes_brmhvn['year'] == 2023) & (party_codes_brmhvn['district'] == 
+                    'Bremerhaven')][['party_id', 'Kurzform',  'Colour']]
+#--------------------
+# Load datasets and get the numbers of voters for each party
+#------
+
+df_2011_brmhvn = pd.read_pickle("../Data/prepared_date/Bremerhaven_2011.pkl")
+df_2015_brmhvn = pd.read_pickle("../Data/prepared_date/Bremerhaven_2015.pkl")
+df_2019_brmhvn = pd.read_pickle("../Data/prepared_date/Bremerhaven_2019.pkl")
+df_2023_brmhvn = pd.read_pickle("../Data/prepared_date/Bremerhaven_2023.pkl")
+
+
+def convert_to_hundredth(df):
+    df = df.applymap(int)
+    
+    df = df.applymap(lambda x: (x // 100) * 100)
+    
+    return df
+
+df_brehvn_2011 = convert_to_hundredth(df_2011_brmhvn)
+df_brehvn_2015 = convert_to_hundredth(df_2015_brmhvn)
+df_brehvn_2019 = convert_to_hundredth(df_2019_brmhvn)
+df_brehvn_2023 = convert_to_hundredth(df_2023_brmhvn)
+
+############ -----------------------------
+#Convert the party codes to names
+#---------------------------
+
+def replace_codes_with_names(df_data, df_codes):
+    merged_columns = []
+
+    for code_column in ['Stimme 1', 'Stimme 2', 'Stimme 3', 'Stimme 4', 'Stimme 5']:
+        merged_df = pd.merge(df_data, df_codes, how='left', left_on=code_column, right_on='party_id')
+        
+        merged_df.drop(columns=[col for col in merged_df.columns if col != 'Kurzform'], inplace=True)
+        
+        merged_df.rename(columns={'Kurzform': code_column}, inplace=True)
+        
+        merged_columns.append(merged_df)
+
+    final_df = pd.concat(merged_columns, axis=1)
+    
+    return final_df
+
+df_brehvn_2011_prty = replace_codes_with_names(df_brehvn_2011, party_codes_brmhvn_2011)
+df_brehvn_2015_prty = replace_codes_with_names(df_brehvn_2015, party_codes_brmhvn_2015)
+df_brehvn_2019_prty = replace_codes_with_names(df_brehvn_2019, party_codes_brmhvn_2019)
+df_brehvn_2023_prty = replace_codes_with_names(df_brehvn_2023, party_codes_brmhvn_2023)
+#--------------------------
+# Function to get total voters for each pary
+#---------------------------
+def count_total_voters(df):
+    df = df.dropna()
+
+    unique_counts = {}
+
+    for _, row in df.iterrows():
+        unique_values_in_row = set(row)
+
+        for value in unique_values_in_row:
+            unique_counts[value] = unique_counts.get(value, 0) + 1
+
+    # Convert the dictionary to a DataFrame
+    unique_counts_df = pd.DataFrame(list(unique_counts.items()), columns=['Party_id', 'Total_voters'])
+    #df_party = df_party_pairs.merge(df_total_voters, how='left', left_on='Party_Code_A', right_on='Party_id')
+
+    return unique_counts_df
+
+df_2011_brmhvn_total_voters = count_total_voters(df_brehvn_2011_prty)
+df_2015_brmhvn_total_voters = count_total_voters(df_brehvn_2015_prty)
+df_2019_brmhvn_total_voters = count_total_voters(df_brehvn_2019_prty)
+df_2023_brmhvn_total_voters = count_total_voters(df_brehvn_2023_prty)
+
+```
+
+```{python}
+from collections import Counter
+from itertools import combinations
+#---------------------------------
+# Generate Uniqure pairs of parties that voters voted for
+# ---------------------------
+
+def unique_pairs_with_count(df):
+    df = df.applymap(int)
+    pair_counter = Counter()
+
+    for index, row in df.iterrows():
+        row_values = [(x // 100) * 100 for x in row if x!= 0]
+
+        unique_pairs = set(combinations(row_values, 2))
+
+        pair_counter.update(unique_pairs)
+
+    pair_counts_df = pd.DataFrame(pair_counter.items(), columns=['Pair', 'Count'])
+
+    pair_counts_df[['Party_Code_A', 'Party_Code_B']] = pd.DataFrame(pair_counts_df['Pair'].tolist())
+    pair_counts_df = pair_counts_df[['Party_Code_A', 'Party_Code_B', 'Count']]
+    
+    return pair_counts_df
+
+df_2011_brmhvn_pair = unique_pairs_with_count(df_2011_brmhvn)
+df_2015_brmhvn_pair = unique_pairs_with_count(df_2015_brmhvn)
+df_2019_brmhvn_pair = unique_pairs_with_count(df_2019_brmhvn)
+df_2023_brmhvn_pair = unique_pairs_with_count(df_2023_brmhvn)
+
+#------------------------
+# Replace party codes with party names in the covoter dataframe 
+#-------------------------
+
+def merge_and_clean(df, party_codes_brmhvn):
+    #df_merged= df.merge(party_votes, how='left', left_on ='Party_Code_A', right_on= ['Party_id'])
+    # Merge with party codes for party A
+    df_merged = df.merge(party_codes_brmhvn, how='left', left_on='Party_Code_A', right_on='party_id')
+    df_merged.drop(columns=['party_id'], inplace=True)
+    df_merged.rename(columns={'Kurzform': 'party_A'}, inplace=True)
+    
+    # Merge with party codes for party B
+    df_merged = df_merged.merge(party_codes_brmhvn, how='left', left_on='Party_Code_B', right_on='party_id')
+    df_merged.drop(columns=['party_id'], inplace=True)
+    df_merged.rename(columns={'Kurzform': 'party_B'}, inplace=True)
+    
+    return df_merged
+
+df_2011_brmhvn_party_pairs = merge_and_clean(df_2011_brmhvn_pair, party_codes_brmhvn_2011)
+df_2015_brmhvn_party_pairs = merge_and_clean(df_2015_brmhvn_pair, party_codes_brmhvn_2015)
+df_2019_brmhvn_party_pairs = merge_and_clean(df_2019_brmhvn_pair, party_codes_brmhvn_2019)
+df_2023_brmhvn_party_pairs = merge_and_clean(df_2023_brmhvn_pair, party_codes_brmhvn_2023)
+
+# --------------------------------
+# Get the avaerage percentage of co voters to compute the matrix
+# --------------------------------
+
+def compute_party_voting_percentages(df_party_pairs, df_total_voters):
+    df_party = df_party_pairs.merge(df_total_voters, how='left', left_on='party_A', right_on='Party_id')
+    
+    df_party['Percentage_A_voted_B'] = (df_party['Count'] / df_party['Total_voters']) * 100
+    
+    df_party.drop(columns=['Total_voters'], inplace=True)
+    
+    df_party = df_party.merge(df_total_voters, how='left', left_on='party_B', right_on='Party_id', suffixes=('_A', '_B'))
+    
+    df_party['Percentage_B_voted_A'] = (df_party['Count'] / df_party['Total_voters']) * 100
+    
+    df_party.drop(columns=['Total_voters'], inplace=True)
+    
+    df_party_result = df_party[['party_A', 'party_B', 'Count', 'Percentage_A_voted_B', 'Percentage_B_voted_A']]
+    
+    df_party_result['Average_percentage'] = ((df_party_result['Percentage_A_voted_B'] + df_party_result['Percentage_B_voted_A']) / 200).round(1)
+    
+    return df_party_result
+
+
+df_2011_brmhvn_party_percentages = compute_party_voting_percentages(df_2011_brmhvn_party_pairs,df_2011_brmhvn_total_voters)
+df_2015_brmhvn_party_percentages = compute_party_voting_percentages(df_2015_brmhvn_party_pairs,df_2015_brmhvn_total_voters)
+df_2019_brmhvn_party_percentages = compute_party_voting_percentages(df_2019_brmhvn_party_pairs,df_2019_brmhvn_total_voters)
+df_2023_brmhvn_party_percentages = compute_party_voting_percentages(df_2023_brmhvn_party_pairs,df_2023_brmhvn_total_voters)
+
+```
+
+```{python}
+import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw, ImageFont
+
+def create_percentage_matrix(df):
+    # Get unique values of party_A and party_B
+    unique_party_A = df['party_A'].unique()
+    unique_party_B = df['party_B'].unique()
+    
+    matrix = pd.DataFrame(index=unique_party_A, columns=unique_party_A)
+    
+    for party_A in unique_party_A:
+        for party_B in unique_party_A:
+            subset_df = df[(df['party_A'] == party_A) & (df['party_B'] == party_B)]
+            if not subset_df.empty:
+                average_percentage = subset_df['Average_percentage'].values[0] 
+                matrix.loc[party_A, party_B] = average_percentage
+    matrix.fillna(0, inplace=True)
+    # Mirror the lower triangle to the upper triangle
+    for i in range(len(matrix)):
+        for j in range(i):
+            matrix.iloc[i, j] = matrix.iloc[j, i]
+    
+    return matrix
+#print(f"This gives a Upper truangular matrix or Right trainagular, so I mirrowed the lower traingular matrix to the upper triangular to get a full symmetrix matrix")
+
+# Call the function with your DataFrame
+matrix_brehvn_2011 = create_percentage_matrix(df_2011_brmhvn_party_percentages)
+matrix_brehvn_2015 = create_percentage_matrix(df_2015_brmhvn_party_percentages)
+matrix_brehvn_2019 = create_percentage_matrix(df_2019_brmhvn_party_percentages)
+matrix_brehvn_2019 = matrix_brehvn_2019.astype(float)
+matrix_brehvn_2023 = create_percentage_matrix(df_2023_brmhvn_party_percentages)
+```
+
+```{python}
+#--------------------------------------
+# get function to create a matrix for the ration of the common voters to all voter
+#----------------------------------------- 
+
+def count_votes_for_pairs(df):
+    df = df.applymap(int)
+    pair_counter = Counter()
+    df['party_a_intersection_party_b'] = 0
+    df['party_a_union_party_b'] = 0 
+    for index, row in df.iterrows():
+        row_values = [(x // 100) * 100 for x in row if x!= 0]   
+        unique_pairs = set(combinations(row_values, 2)) 
+        pair_counter.update(unique_pairs)   
+    pair_counts_df = pd.DataFrame(pair_counter.items(), columns=['Pair', 'Count'])  
+    pair_counts_df[['Party_A', 'Party_Code_B']] = pd.DataFrame(pair_counts_df['Pair'].tolist())
+    #pair_counts_df = pair_counts_df[['Party_Code_A', 'Party_Code_B', 'Count']]
+    # Iterate over each row in the DataFrame
+    for index, row in df.iterrows():
+        party_a = row['Party_Code_A']
+        party_b = row['Party_Code_B']
+        
+        # Count votes for both parties and votes for either party
+        votes_for_both = df[(df['Party_Code_A'] == party_a) & (df['Party_Code_B'] == party_b)]['Count'].sum()
+        votes_for_either = df[(df['Party_Code_A'] == party_a) | (df['Party_Code_B'] == party_b)]['Count'].sum()
+        ratio_f = (votes_for_both / votes_for_either).round(2)
+        # Update the new columns with counts
+        df.loc[index, 'party_a_intersection_party_b'] = votes_for_both
+        df.loc[index, 'party_a_union_party_b'] = votes_for_either
+        df.loc[index, 'party_votes_ratio'] = ratio_f
+       
+    return df
+
+
+df_2011_brmhvn_pair_union = count_votes_for_pairs(df_2011_brmhvn_pair)
+df_2015_brmhvn_pair_union = count_votes_for_pairs(df_2015_brmhvn_pair)
+df_2019_brmhvn_pair_union = count_votes_for_pairs(df_2019_brmhvn_pair)
+df_2023_brmhvn_pair_union = count_votes_for_pairs(df_2023_brmhvn_pair)
+
+
+df_2011_brmhvn_party_pairs_ratio = merge_and_clean(df_2011_brmhvn_pair_union, party_codes_brmhvn_2011)
+df_2015_brmhvn_party_pairs_ratio = merge_and_clean(df_2015_brmhvn_pair_union, party_codes_brmhvn_2015)
+df_2019_brmhvn_party_pairs_ratio = merge_and_clean(df_2019_brmhvn_pair_union, party_codes_brmhvn_2019)
+df_2023_brmhvn_party_pairs_ratio = merge_and_clean(df_2023_brmhvn_pair_union, party_codes_brmhvn_2023)
+
+def create_ratio_matrix(df):
+    # Get unique values of party_A and party_B
+    unique_party_A = df['party_A'].unique()
+    unique_party_B = df['party_B'].unique()
+
+    matrix = pd.DataFrame(index=unique_party_A, columns=unique_party_B)
+    
+    # Iterate over each unique pair of parties and fill in the matrix with the average percentage
+    for party_A in unique_party_A:
+        for party_B in unique_party_B:
+            subset_df = df[(df['party_A'] == party_A) & (df['party_B'] == party_B)]
+            if not subset_df.empty:
+                voter_ratio = subset_df['party_votes_ratio'].values[0]   
+                matrix.loc[party_A, party_B] = voter_ratio
+    
+    matrix.fillna(0, inplace=True)
+
+    # Mirror the lower triangle to the upper triangle
+    for i in range(len(matrix)):
+        for j in range(i):
+            matrix.iloc[i, j] = matrix.iloc[j, i]
+    
+    return matrix
+
+matrix_brehvn_2011_ratio = create_ratio_matrix(df_2011_brmhvn_party_pairs_ratio)
+matrix_brehvn_2015_ratio = create_ratio_matrix(df_2015_brmhvn_party_pairs_ratio)
+matrix_brehvn_2019_ratio = create_ratio_matrix(df_2019_brmhvn_party_pairs_ratio)
+matrix_brehvn_2019_ratio = matrix_brehvn_2019_ratio.astype(float)
+matrix_brehvn_2023_ratio = create_ratio_matrix(df_2023_brmhvn_party_pairs_ratio) 
+
+```
+
+```{python}
+#---------------------------------
+# Party names, labels, total votes, and colors for the visualization
+#----------------------------------
+Bremerhaven_2011_percent = pd.read_pickle("../Data/prepared_date/Bremerhaven_2011_party_percentages.pkl")
+brehvn_2011_label_votes = Bremerhaven_2011_percent[['Kurzform', 'total_count', 'Colour']]
+Bremerhaven_2015_percent = pd.read_pickle("../Data/prepared_date/Bremerhaven_2015_party_percentages.pkl")
+brehvn_2015_label_votes = Bremerhaven_2015_percent[['Kurzform', 'total_count', 'Colour']]
+Bremerhaven_2019_percent = pd.read_pickle("../Data/prepared_date/Bremerhaven_2019_party_percentages.pkl")
+brehvn_2019_label_votes = Bremerhaven_2019_percent[['Kurzform', 'total_count', 'Colour']]
+Bremerhaven_2023_percent = pd.read_pickle("../Data/prepared_date/Bremerhaven_2023_party_percentages.pkl")
+brehvn_2023_label_votes = Bremerhaven_2023_percent[['Kurzform', 'total_count', 'Colour']]
+```
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+def perform_pca_new(matrix_df, labels_df, n_components=2, title='PCA Result', ax=None):
+    # Convert dataframe to NumPy array
+    matrix_array = matrix_df.to_numpy()
+    
+    # Calculate the covariance matrix
+    covariance_matrix = np.cov(matrix_array, rowvar=False)
+    
+    # Compute eigenvalues and eigenvectors
+    eigenvalues, eigenvectors = np.linalg.eig(covariance_matrix)
+    
+    # Sort eigenvectors based on eigenvalues
+    sorted_indices = np.argsort(eigenvalues)[::-1]
+    topk_indices = sorted_indices[:n_components]
+    
+    # Select the top-k eigenvectors
+    selected_eigenvectors = eigenvectors[:, topk_indices]
+    
+    # Extract labels and sizes from the labels DataFrame
+    labels = labels_df['Kurzform'].tolist()
+    sizes = np.sqrt(labels_df['total_count']).tolist() 
+    colors = labels_df['Colour'].fillna('grey').tolist()  # Replace NaN with 'grey'
+    
+    # Plot PCA result with adjusted point sizes and labels
+    for i, (label, color) in enumerate(zip(labels, colors)):
+        ax.scatter(selected_eigenvectors[i, 0], selected_eigenvectors[i, 1], s=sizes[i], color=color)
+        ax.annotate(label, (selected_eigenvectors[i, 0], selected_eigenvectors[i, 1]))
+    
+    ax.set_title(title)
+    ax.set_xlabel('Principal Component 1')
+    ax.set_ylabel('Principal Component 2')
+    ax.grid(True)
+
+# Define subplots
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+# Perform PCA and plot in subplots
+perform_pca_new(matrix_bre_2011, bre_2011_label_votes, title='PCA on Average Co-voter percentages Bremen 2011', ax=axs[0])
+perform_pca_new(matrix_bre_2023, bre_2023_label_votes, title='PCA on Average Co-voter percentages Bremen 2023', ax=axs[1])
+
+plt.tight_layout()
+plt.show()
+
+```
+
+## PCA on Average Co Voter Percentage -  Bremerhaven
+```{python}
+# Define subplots
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+# Perform PCA and plot in subplots
+perform_pca_new(matrix_brehvn_2011, brehvn_2011_label_votes, title='PCA on Average Co-voter percentages Bremerhaven 2011', ax=axs[0])
+perform_pca_new(matrix_brehvn_2023, brehvn_2023_label_votes, title='PCA on Average Co-voter percentages Bremerhaven 2023', ax=axs[1])
+
+plt.tight_layout()
+plt.show()
+```
+
+## PCA on Union to intersection ratio - Bremen
+
+
+```{python}
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+# Perform PCA and plot in subplots
+perform_pca_new(matrix_bre_2011_ratio, bre_2011_label_votes, title='PCA on Union to intersection ratio Bremen 2011', ax=axs[0])
+perform_pca_new(matrix_bre_2023_ratio, bre_2023_label_votes, title='PCA on Union to intersection ratio Bremen 2023', ax=axs[1])
+
+plt.tight_layout()
+plt.show()
+```
+
+## PCA on Union to intersection ratio - Bremerhaven
+
+
+```{python}
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+# Perform PCA and plot in subplots
+perform_pca_new(matrix_brehvn_2011_ratio, brehvn_2011_label_votes, title='PCA on Union to intersection ratio Bremerhaven 2011', ax=axs[0])
+perform_pca_new(matrix_brehvn_2023_ratio, brehvn_2023_label_votes, title='PCA on Union to intersection ratio Bremerhaven 2023', ax=axs[1])
+
+plt.tight_layout()
+plt.show()
+```
+
+## MDS Results
+### MDS on Average Co Voter Percentages - Bremen
+
+```{python}
+from sklearn.manifold import MDS
+
+def plot_mds_with_labels_and_sizes(matrix_df, labels_df, title='MDS Result', ax=None):
+    # Convert dataframe to NumPy array and scale it
+    matrix_array = matrix_df.to_numpy()
+    
+    # Perform MDS
+    mds = MDS(n_components=2, dissimilarity='precomputed')
+    mds_result = mds.fit_transform(matrix_array)
+    
+    # Extract labels, sizes, and colors from the labels DataFrame
+    labels = labels_df['Kurzform'].tolist()
+    sizes = np.sqrt(labels_df['total_count']).tolist()
+    colors = labels_df['Colour'].fillna('grey').tolist()  # Replace NaN with 'grey'
+
+    # Plot MDS result with adjusted point sizes and colors
+    for i, (label, size, color) in enumerate(zip(labels, sizes, colors)):
+        ax.scatter(mds_result[i, 0], mds_result[i, 1], s=size, color=color)
+        ax.annotate(label, (mds_result[i, 0], mds_result[i, 1]))
+    
+    # Set plot title and labels
+    ax.set_title(title)
+    ax.set_xlabel('MDS Dimension 1')
+    ax.set_ylabel('MDS Dimension 2')
+    ax.grid(True)
+
+# Define subplots
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+plot_mds_with_labels_and_sizes(matrix_bre_2011, bre_2011_label_votes, title='MDS on Average Co-voter percentages Bremen 2011', ax=axs[0])
+plot_mds_with_labels_and_sizes(matrix_bre_2023, bre_2023_label_votes, title='MDS on Average Co-voter percentages Bremen 2023', ax=axs[1])
+
+
+plt.tight_layout()
+plt.show()
+```
+
+## MDS on Average Co Voter Percentages -Bremerhaven
+
+```{python}
+# Define subplots
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+plot_mds_with_labels_and_sizes(matrix_brehvn_2011, brehvn_2011_label_votes, title='MDS on Average Co-voter percentages Bremerhaven 2011', ax=axs[0])
+plot_mds_with_labels_and_sizes(matrix_brehvn_2023, brehvn_2023_label_votes, title='MDS on Average Co-voter percentages Bremerhaven 2011', ax=axs[1])
+
+
+plt.tight_layout()
+plt.show()
+```
+
+## MDS on Union to intersection ratio - Bremen
+
+```{python}
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+plot_mds_with_labels_and_sizes(matrix_bre_2011_ratio, bre_2011_label_votes, title='MDS on Union to intersection ratio Bremen 2011', ax=axs[0])
+plot_mds_with_labels_and_sizes(matrix_bre_2023_ratio, bre_2023_label_votes, title='MDS on Union to intersection ratio Bremen 2023', ax=axs[1])
+
+plt.tight_layout()
+plt.show()
+```
+
+## MDS on Union to intersection ratio - Bremerhaven
+
+```{python}
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+plot_mds_with_labels_and_sizes(matrix_brehvn_2011_ratio, brehvn_2011_label_votes, title='MDS on Union to intersection ratio Bremerhaven 2011', ax=axs[0])
+plot_mds_with_labels_and_sizes(matrix_brehvn_2023_ratio, brehvn_2023_label_votes, title='MDS on Union to intersection ratio Bremerhaven 2023', ax=axs[1])
+
+plt.tight_layout()
+plt.show()
+```
+
+## t-SNE on Average Co Voter Percentages - Bremen
+
+```{python}
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sklearn.manifold import TSNE
+
+def perform_and_plot_tsne(matrix_df, labels_df, labels=None, random_state=0, n_components=2, perplexity=5,
+                          learning_rate="auto", title='t-SNE Result', ax=None):
+    # Convert dataframe to NumPy array
+    matrix_array = matrix_df.to_numpy()
+    
+    # Perform t-SNE
+    tsne = TSNE(n_components=n_components, perplexity=perplexity, learning_rate=learning_rate, random_state=random_state)
+    tsne_result = tsne.fit_transform(matrix_array)
+    
+    # Extract labels, sizes, and colors from the labels DataFrame
+    labels = labels_df['Kurzform'].tolist()
+    sizes = np.sqrt(labels_df['total_count']).tolist()
+    colors = labels_df['Colour'].fillna('grey').tolist()  # Replace NaN with 'grey'
+
+    # Plot t-SNE result with adjusted point sizes and colors
+    for i, (label, size, color) in enumerate(zip(labels, sizes, colors)):
+        ax.scatter(tsne_result[i, 0], tsne_result[i, 1], s=size, color=color)
+        ax.annotate(label, (tsne_result[i, 0], tsne_result[i, 1]))
+    
+    ax.set_title(title)
+    ax.set_xlabel('Component 1')
+    ax.set_ylabel('Component 2')
+    ax.grid(True)
+
+# Define subplots
+fig, axs = plt.subplots(1, 2, figsize=(14, 6))
+
+perform_and_plot_tsne(matrix_bre_2011, bre_2011_label_votes, title='t-SNE on Average Co-voter percentages Bremen 2011', ax=axs[0])
+perform_and_plot_tsne(matrix_bre_2023, bre_2023_label_votes, title='t-SNE on Average Co-voter percentages Bremen 2023', ax=axs[1])
+
+
+plt.tight_layout()
+plt.show()
+```
+
+## t-SNE on Average Co Voter Percentages - Bremerhaven
+
+```{python}
+# Define subplots
+fig, axs = plt.subplots(1, 2, figsize=(14, 6))
+
+perform_and_plot_tsne(matrix_brehvn_2011, brehvn_2011_label_votes, title='t-SNE on Average Co-voter percentages Bremerhaven 2011', ax=axs[0])
+perform_and_plot_tsne(matrix_brehvn_2023, brehvn_2023_label_votes, title='t-SNE on Average Co-voter percentages Bremerhaven 2023', ax=axs[1])
+
+
+plt.tight_layout()
+plt.show()
+```
+
+## t-SNE on Union to intersection ratio - Bremen
+
+```{python}
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+perform_and_plot_tsne(matrix_bre_2011_ratio, bre_2011_label_votes, title='t-SNE on Union to intersection ratio Bremen 2011', ax=axs[0])
+perform_and_plot_tsne(matrix_bre_2023_ratio, bre_2023_label_votes, title='t-SNE on Union to intersection ratio Bremen 2023', ax=axs[1])
+
+plt.tight_layout()
+plt.show()
+```
+
+## t-SNE on Union to intersection ratio - Bremerhaven
+
+```{python}
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+perform_and_plot_tsne(matrix_brehvn_2011_ratio, brehvn_2011_label_votes, title='t-SNE on Union to intersection ratio Bremerhaven 2011', ax=axs[0])
+perform_and_plot_tsne(matrix_brehvn_2023_ratio, brehvn_2023_label_votes, title='t-SNE on Union to intersection ratio Bremerhaven 2023', ax=axs[1])
+
+plt.tight_layout()
+plt.show()
+```
+
+## Discussion on Models
+
+- **Principal Component Analysis (PCA)**
+  - Captures major dimensions of variation.
+  - Highlights political ideology and party size.
+- **Multidimensional Scaling (MDS)**
+  - Preserves relative distances between parties.
+  - Reveals dynamic shifts in voter alignment.
+- **t-Distributed Stochastic Neighbour Embedding (t-SNE)**
+  - Uncovers local structures within data.
+  - Identifies distinct clusters of voter bases.
+
+## Discussion on Results {.smaller}
+
+### Key Trends Observed
+- **2011 Electoral Cycle**: Clear ideological divides, with SPD and GRÜNE showing significant voter overlap.
+- **2015 Electoral Cycle**: Emergence of new clusters and parties like Die Partei gaining traction.
+- **2019 Electoral Cycle**: Increased fragmentation and diversification of voter preferences.
+- **2023 Electoral Cycle**: Dynamic political environment with stable support for traditional parties and the rise of innovative platforms like Volt and Die Basis.
+
+### Insights
+- **Political Ideologies**: PCA effectively separates parties along ideological lines.
+- **Voter Alignment**: MDS reveals shifts and realignments in voter preferences.
+- **Emerging Movements**: t-SNE highlights the rise of new political entities and local voter bases.
+
+## Conclusion
+
+### Implications for Future Research
+- **Advanced Predictive Models**: Potential for machine learning to predict electoral outcomes.
+- **Granular Analysis**: Deeper analysis of demographic impacts on voting patterns.
+- **Longitudinal Studies**: Extending analysis to identify long-term trends and impacts of political events.
+
+### Conclusion
+- **Integration of Data Science and Social Science**: Demonstrated the power of combining methodologies for comprehensive electoral analysis.
+- **Continuous Innovation**: Importance of adapting political strategies to changing voter preferences.
+- **Foundation for Future Studies**: Laid groundwork for further research into electoral dynamics, contributing to a nuanced understanding of political changes.
+
+
+
+
+
+

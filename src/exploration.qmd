@@ -1,0 +1,513 @@
+```{python} 
+import pandas as pd
+import numpy as nb
+from collections import Counter
+import matplotlib.pyplot  as mlp
+from itertools import combinations
+from tabulate import tabulate
+ ```
+
+ ```{python}
+ party_codes = pd.read_excel("../Data/Parteien-Codes.xlsx")
+
+ ```
+
+ ```{python} 
+ df_2011 = pd.read_excel("../Data/Stimmzettel 2011 Wahlbereich Bremen Vertrag.xlsx")
+ df_2011 = df_2011.iloc[0:]
+ new_headers = df_2011.iloc[0]
+ df_2011.columns = new_headers
+ df_2011 =df_2011[1:]
+ df_2011.isnull()
+ df_2011.fillna(0, inplace=True)
+ Valid_count = df_2011[df_2011['Bemerkungen'] == 0].shape[0]
+ print(f"There are a total of {df_2011.shape[0]} voters in the 2015 data set of which {Valid_count} successfully cast their votes")
+ df_2011 = df_2011[df_2011['Bemerkungen'] == 0]
+ df_2011 = df_2011.drop(columns="Bemerkungen")
+ df_2011 = df_2011.astype(str)
+ 
+ ```
+
+```{python}
+ df_2011_brhv = pd.read_excel("../Data/Stimmzettel 2011 Wahlbereich Bremerhaven Vertrag.xlsx")
+ df_2011_brhv = df_2011_brhv.iloc[0:]
+ new_headers = df_2011_brhv.iloc[0]
+ df_2011_brhv.columns = new_headers
+ df_2011_brhv =df_2011_brhv[1:]
+ df_2011_brhv.isnull()
+ df_2011_brhv.fillna(0, inplace=True)
+ Valid_count = df_2011_brhv[df_2011_brhv['Bemerkungen'] == 0].shape[0]
+ print(f"There are a total of {df_2011_brhv.shape[0]} voters in the 2015 data set of which {Valid_count} successfully cast their votes")
+ df_2011_brhv = df_2011_brhv[df_2011_brhv['Bemerkungen'] == 0]
+ df_2011_brhv = df_2011_brhv.drop(columns="Bemerkungen")
+ df_2011_brhv = df_2011_brhv.astype(str)
+```
+
+  ```{python}
+  def count_unique_numbers(df):
+    df = df.astype(int)
+    
+    # Create an empty dictionary to store unique numbers and their counts
+    unique_counts = {}
+    
+    # Loop through each row in the DataFrame
+    for index, row in df.iterrows():
+        # Loop through each value in the row
+        for value in row:
+            # Check if the value is greater than 0
+            if value > 0:
+                # Increment the count for the current value in the dictionary
+                unique_counts[value] = unique_counts.get(value, 0) + 1
+            
+    # Create a new DataFrame from the dictionary
+    unique_counts_df = pd.DataFrame(list(unique_counts.items()), columns=['Number', 'Count'])
+    
+    return unique_counts_df
+
+# Get the party code from the vote
+def get_hundredth(number):
+    return (number // 100) *100
+
+  ```
+
+```{python}
+
+unique_counts_df_2011 = count_unique_numbers(df_2011)
+
+unique_counts_df_2011['party_id'] = unique_counts_df_2011['Number'].apply(get_hundredth)
+party_votes_2011 = unique_counts_df_2011.groupby('party_id')['Count'].sum().reset_index()
+
+party_votes_2011.columns = ['party_id', 'total_count']
+total_votes_2011 = party_votes_2011['total_count'].sum()
+party_votes_2011['percentage %'] = ((party_votes_2011['total_count'] / total_votes_2011) * 100).round(2)
+party_codes_2011 = party_codes[(party_codes['year'] == 2011) & (party_codes['district'] == 'Bremen')][['party_id', 'Kurzform', 'Name Partei/WÃ¤hlervereinigung']]
+merged_df_2011 = pd.merge(party_votes_2011, party_codes_2011, how='inner', on='party_id')
+table_2011_party = tabulate(merged_df_2011, headers='keys', tablefmt='fancy_grid')
+print(table_2011_party)
+
+```
+
+```{python}
+party_codes_2011 = party_codes[(party_codes['year'] == 2011) & (party_codes['district'] == 'Bremen')][['party_id', 'Kurzform', 'Name Partei/WÃ¤hlervereinigung']]
+
+merged_df_2011 = pd.merge(party_votes_2011, party_codes_2011, how='inner', on='party_id')
+merged_df_2011_sorted = merged_df_2011.sort_values(by='percentage %', ascending=False)
+top_n = 10
+top_merged_df_2011 = merged_df_2011_sorted.head(top_n)
+ax = top_merged_df_2011.plot.bar(x='Kurzform', y='percentage %', rot=0)
+
+
+```
+
+
+```{python}
+ df_2015 = pd.read_excel("../Data/Stimmzettel 2015 Wahlbereich Bremen Vertrag.xlsx")
+ df_2015 = df_2015.iloc[0:]
+ new_headers = df_2015.iloc[0]
+ df_2015.columns = new_headers
+ df_2015 =df_2015[1:]
+ df_2015 = df_2015.reset_index(drop=True)
+ df_2015.fillna(0, inplace=True)
+ Valid_count_2015 = df_2015[df_2015['Bemerkungen'] == 0].shape[0]
+ print(f"There are a total of {df_2015.shape[0]} voters in the 2015 data set of which {Valid_count_2015} successfully cast their votes")
+ df_2015 = df_2015[df_2015['Bemerkungen'] == 0]
+ df_2015 = df_2015.drop(columns="Bemerkungen") 
+ df_2015 = df_2015.astype(str)
+
+```
+
+```{python}
+# Create new df for the unique candidates and their votes
+unique_counts_df_2015 = count_unique_numbers(df_2015)
+unique_counts_df_2015['party_id'] = unique_counts_df_2015['Number'].apply(get_hundredth)
+
+# Create new df for the parties and their votes
+party_votes_2015 = unique_counts_df_2015.groupby('party_id')['Count'].sum().reset_index()
+party_votes_2015.columns = ['party_id', 'total_count']
+total_votes_2015 = party_votes_2015['total_count'].sum()
+party_votes_2015['percentage %'] = ((party_votes_2015['total_count'] / total_votes_2015) * 100).round(2)
+party_codes_2015 = party_codes[(party_codes['year'] == 2015) & (party_codes['district'] == 'Bremen')][['party_id', 'Kurzform', 'Name Partei/WÃ¤hlervereinigung']]
+merged_df_2015 = pd.merge(party_votes_2015, party_codes_2015, how='inner', on='party_id')
+table_2015_party = tabulate(merged_df_2015, headers='keys', tablefmt='fancy_grid')
+merged_df_2015_sorted = merged_df_2015.sort_values(by='percentage %', ascending=False)
+top_n = 10
+top_merged_df_2015 = merged_df_2015_sorted.head(top_n)
+
+print(table_2015_party)
+
+```
+
+
+```{python}
+ df_2019 = pd.read_excel("../Data/Stimmzettel 2019 Wahlbereich Bremen Vertrag.xlsx")
+ df_2019.fillna(0, inplace=True)
+ Valid_count_2019 = df_2019[df_2019['Grund Ungültigkeit'] == 0].shape[0]
+ print(f"There are a total of {df_2019.shape[0]} voters in the 2019 data set of which {Valid_count_2019} successfully cast their votes")
+ df_2019 = df_2019[df_2019['Grund Ungültigkeit'] == 0]
+ df_2019 = df_2019.drop(columns="Grund Ungültigkeit") 
+ df_2019 = df_2019.astype(int).astype(str)
+
+```
+
+
+```{python}
+# Create new df for the unique candidates and their votes
+unique_counts_df_2019 = count_unique_numbers(df_2019)
+unique_counts_df_2019['party_id'] = unique_counts_df_2019['Number'].apply(get_hundredth)
+
+# Create new df for the parties and their votes
+party_votes_2019 = unique_counts_df_2019.groupby('party_id')['Count'].sum().reset_index()
+party_votes_2019.columns = ['party_id', 'total_count']
+total_votes_2019 = party_votes_2019['total_count'].sum()
+party_votes_2019['percentage %'] = ((party_votes_2019['total_count'] / total_votes_2019) * 100).round(2)
+party_codes_2019 = party_codes[(party_codes['year'] == 2019) & (party_codes['district'] == 'Bremen')][['party_id', 'Kurzform', 'Name Partei/WÃ¤hlervereinigung']]
+merged_df_2019 = pd.merge(party_votes_2019, party_codes_2019, how='inner', on='party_id')
+table_2019_party = tabulate(merged_df_2019, headers='keys', tablefmt='fancy_grid')
+merged_df_2019_sorted = merged_df_2019.sort_values(by='percentage %', ascending=False)
+top_n = 10
+top_merged_df_2019 = merged_df_2019_sorted.head(top_n)
+print(table_2019_party )
+```
+
+```{python}
+ df_2023 = pd.read_excel("../Data/Stimmzettel 2023 Wahlbereich Bremen Vertrag.xlsx")
+ df_2023 = df_2023.iloc[0:]
+ new_headers = df_2023.iloc[0]
+ df_2023.columns = new_headers
+ df_2023 =df_2023[1:]
+ df_2023 = df_2023.reset_index(drop=True)
+ df_2023.drop(df_2023[df_2023['Gültigkeit'] == 'Ungültig (per Beschluss)'].index, inplace = True)
+ df_2023.drop(df_2023[df_2023['Gültigkeit'] == 'Ungültig'].index, inplace = True)
+ df_2023 = df_2023.drop(columns="Gültigkeit")
+ df_2023 = df_2023.drop(columns="Bemerkung")
+ df_2023.fillna(0, inplace=True)
+ df_2023 = df_2023.astype(str)
+
+
+```
+
+```{python}
+# Create new df for the unique candidates and their votes
+unique_counts_df_2023 = count_unique_numbers(df_2023)
+unique_counts_df_2023['party_id'] = unique_counts_df_2023['Number'].apply(get_hundredth)
+party_votes_2023 = unique_counts_df_2023.groupby('party_id')['Count'].sum().reset_index()
+party_votes_2023.columns = ['party_id', 'total_count']
+total_votes_2023 = party_votes_2023['total_count'].sum()
+party_votes_2023['percentage %'] = ((party_votes_2023['total_count'] / total_votes_2023) * 100).round(2) 
+party_codes_2023 = party_codes[(party_codes['year'] == 2023) & (party_codes['district'] == 'Bremen')][['party_id', 'Kurzform', 'Name Partei/WÃ¤hlervereinigung']]
+merged_df_2023 = pd.merge(party_votes_2023, party_codes_2023, how='inner', on='party_id')
+table_2023_party = tabulate(merged_df_2023, headers='keys', tablefmt='fancy_grid')
+merged_df_2023_sorted = merged_df_2023.sort_values(by='percentage %', ascending=False)
+top_n = 10
+top_merged_df_2023 = merged_df_2023_sorted.head(top_n)
+print(table_2023_party)
+```
+
+```{python}
+
+# Create a figure and axis for subplots
+fig, axs = mlp.subplots(2, 2, figsize=(12, 8))
+
+# Plot each bar chart on its corresponding axis
+top_merged_df_2011.plot.bar(x='Kurzform', y='percentage %', rot=0, ax=axs[0, 0])
+axs[0, 0].set_title('Bremen 2011')
+
+top_merged_df_2015.plot.bar(x='Kurzform', y='percentage %', rot=0, ax=axs[0, 1])
+axs[0, 1].set_title('Bremen 2015')
+
+top_merged_df_2019.plot.bar(x='Kurzform', y='percentage %', rot=0, ax=axs[1, 0])
+axs[1, 0].set_title('Bremen 2019')
+
+top_merged_df_2023.plot.bar(x='Kurzform', y='percentage %', rot=0, ax=axs[1, 1])
+axs[1, 1].set_title('Bremen 2023')
+
+# Adjust layout to prevent overlapping titles
+mlp.tight_layout()
+
+# Show the plot
+mlp.show()
+
+```
+
+```{python}
+
+def check_party_votes(lst):
+    if all(str(x)[-2:] == '00' for x in lst):
+        return 'PV'
+    else:
+        return 'LV'
+
+
+def check_party_votes_flt(lst):
+    if all(x % 100 == 0 for x in lst):
+        return 'PV'
+    else:
+        return 'LV'
+
+
+
+def check_last_two_digits(lst):
+    if all(str(x)[-2:] == '00' for x in lst):
+        return 'L'
+    elif any(str(x)[-2:] == '00' for x in lst) & any(str(x)[-2:] != '00' for x in lst) :
+        return 'B'
+    else:
+        return 'I'
+
+def check_last_two_digits_flt(lst):
+    if all(x % 100 == 0 for x in lst):
+        return 'L'
+    elif any(x % 100 == 0 for x in lst) & any(x % 100 != 0 for x in lst) :
+        return 'B'
+    else:
+        return 'I'
+
+
+```
+
+```{python}
+party_indi_voters_df = pd.DataFrame()
+
+ListColumn_2019 = df_2019.apply(lambda row: row.tolist(), axis=1) 
+party_indi_voters_df['2019'] = ListColumn_2019.apply(check_party_votes)
+
+ListColumn_2015 = df_2015.apply(lambda row: row.tolist(), axis=1) 
+party_indi_voters_df['2015'] = ListColumn_2015.apply(check_party_votes)
+ListColumn_2023 = df_2023.apply(lambda row: row.tolist(), axis=1) 
+party_indi_voters_df['2023'] = ListColumn_2023.apply(check_party_votes)
+ListColumn_2011 = df_2011.apply(lambda row: row.tolist(), axis=1) 
+party_indi_voters_df['2011'] = ListColumn_2011.apply(check_party_votes)
+'''
+party_indi_voters_df['2019'] = party_indi_voters_df['ListColumn_2019'].apply(check_party_votes)
+party_indi_voters_df['2011'] = party_indi_voters_df['ListColumn_2011'].apply(check_party_votes)
+party_indi_voters_df['2015'] = party_indi_voters_df['ListColumn_2015'].apply(check_party_votes)
+party_indi_voters_df['2023'] = party_indi_voters_df['ListColumn_2023'].apply(check_party_votes)
+'''
+party_indi_voters_df.head()
+```
+
+```{python}
+'''
+counts = party_indi_voters_df.count()
+
+# Set up colors for 'lv' and 'pv'
+colors = {'LV': 'lightblue', 'PV': 'lightgreen'}
+
+# Plotting the bar chart
+mlp.figure(figsize=(10, 6))
+bars = counts.plot(kind='bar', color=[colors[col] if col in colors else 'gray' for col in party_indi_voters_df.values.ravel()])
+mlp.title('Length of Each Column')
+mlp.xlabel('Column')
+mlp.ylabel('Length')
+mlp.xticks(rotation=45)
+mlp.legend(handles=[plt.Rectangle((0,0),1,1,fc=color, edgecolor='none') for color in colors.values()], 
+           labels=colors.keys(), loc='upper right')
+mlp.tight_layout()
+mlp.show()
+'''
+```
+
+```{python}
+percentages = party_indi_voters_df.apply(lambda col: col.value_counts(normalize=True) * 100)
+counts = party_indi_voters_df.apply(lambda col: col.value_counts())
+
+mlp.figure(figsize=(10, 6))
+bars = percentages.T.plot(kind='bar', stacked=True, color=[ 'lightgreen', 'lightblue'])
+
+# Add labels with percentages on the bars
+for bar in bars.patches:
+    height = bar.get_height()
+    mlp.text(bar.get_x() + bar.get_width() / 2, height , f'{int(height)}', ha='center', va='bottom')
+
+mlp.title('Percentage Distribution of Party voters vs none party voters')
+mlp.xlabel('Electoral year')
+mlp.ylabel('count')
+mlp.xticks(rotation=45)
+mlp.legend(title='Value', loc='upper right', labels=['LV', 'PV'])
+mlp.grid(axis='y', linestyle='--', alpha=0.7)
+mlp.tight_layout()
+mlp.show()
+```
+
+
+
+```{python}
+list_indi_voters_df = pd.DataFrame()
+#party_indi_voters_df['ListColumn'] = df_2011.apply(lambda row: row.tolist(), axis=1) 
+list_indi_voters_df['2019'] = df_2019['ListColumn'].apply(check_last_two_digits_flt)
+list_indi_voters_df['2011'] = df_2011['ListColumn'].apply(check_last_two_digits)
+list_indi_voters_df['2015'] = df_2015['ListColumn'].apply(check_last_two_digits)
+list_indi_voters_df['2023'] = df_2023['ListColumn'].apply(check_last_two_digits)
+
+```
+
+```{python}
+percentages = list_indi_voters_df.apply(lambda col: col.value_counts(normalize=True) * 100)
+
+# Plotting the bar chart
+fig, ax = mlp.subplots(figsize=(10, 6))
+bars = percentages.T.plot(kind='bar', stacked=True, color=['lightblue', 'darkblue', 'green'], ax=ax)
+
+# Add percentage labels to the bars
+for bar in bars.containers:
+    for rect in bar:
+        height = rect.get_height()
+        ax.text(rect.get_x() + rect.get_width() / 2, height, f'{height:.2f}%',
+                ha='center', va='bottom', color='white' if height > 5 else 'black')
+
+mlp.title('Percentage Distribution of True and False Values in Columns')
+mlp.xlabel('Columns')
+mlp.ylabel('Percentage')
+mlp.xticks(rotation=45)
+mlp.legend(title='Value', loc='upper right', labels=['List', 'Individual', 'Both List and Ind'])
+mlp.grid(axis='y', linestyle='--', alpha=0.7)
+mlp.tight_layout()
+mlp.show()
+```
+
+
+```{python}
+def unique_pairs_with_count(df):
+    df = df.applymap(int)
+    # Initialize a Counter to store the counts of unique pairs
+    pair_counter = Counter()
+
+    # Loop through each row in the DataFrame
+    for index, row in df.iterrows():
+        # Convert row values to a list and change the last two digits of each value to 00
+        row_values = [(x // 100) * 100 for x in row if x!= 0]
+
+        # Generate all unique pairs within the row using combinations
+        unique_pairs = set(combinations(row_values, 2))
+
+        # Update the pair_counter with the counts of these unique pairs
+        pair_counter.update(unique_pairs)
+
+    # Convert the Counter to a DataFrame
+    pair_counts_df = pd.DataFrame(pair_counter.items(), columns=['Pair', 'Count'])
+
+    pair_counts_df[['Party_Code_A', 'Party_Code_B']] = pd.DataFrame(pair_counts_df['Pair'].tolist())
+    pair_counts_df = pair_counts_df[['Party_Code_A', 'Party_Code_B', 'Count']]
+    #pair_counts_df['Percentage'] = pair_counts_df.apply(lambda row: row['Count'] / value_counter[row['First_Value']] * 100, axis=1)
+
+    return pair_counts_df
+df_2011_pair = unique_pairs_with_count(df_2011)
+df_2015_pair = unique_pairs_with_count(df_2015)
+df_2019_pair = unique_pairs_with_count(df_2019)
+df_2023_pair = unique_pairs_with_count(df_2023)
+
+```
+
+```{python}
+df_2011_party_pairs = df_2011_pair.merge(party_codes_2011, how ='left', left_on='Party_Code_A', right_on='party_id')
+df_2011_party_pairs.drop(columns=['party_id', 'Name Partei/WÃ¤hlervereinigung'], inplace=True)
+df_2011_party_pairs.rename(columns={'Kurzform': 'party_A'}, inplace=True)
+df_2011_party_pairs = df_2011_party_pairs.merge(party_codes_2011, how ='left', left_on='Party_Code_B', right_on='party_id')
+df_2011_party_pairs.drop(columns=['party_id', 'Name Partei/WÃ¤hlervereinigung'], inplace=True)
+df_2011_party_pairs.rename(columns={'Kurzform': 'party_B'}, inplace=True)
+```
+
+```{python}
+
+def merge_and_clean(df, party_codes):
+    # Merge with party codes for party A
+    df_merged = df.merge(party_codes, how='left', left_on='Party_Code_A', right_on='party_id')
+    df_merged.drop(columns=['party_id', 'Name Partei/WÃ¤hlervereinigung'], inplace=True)
+    df_merged.rename(columns={'Kurzform': 'party_A'}, inplace=True)
+    
+    # Merge with party codes for party B
+    df_merged = df_merged.merge(party_codes, how='left', left_on='Party_Code_B', right_on='party_id')
+    df_merged.drop(columns=['party_id', 'Name Partei/WÃ¤hlervereinigung'], inplace=True)
+    df_merged.rename(columns={'Kurzform': 'party_B'}, inplace=True)
+    df_merged.drop(columns =['Party_Code_A', 'Party_Code_B'], inplace=True)
+    return df_merged
+
+# Call the function with your dataframes
+df_2011_party_pairs = merge_and_clean(df_2011_pair, party_codes_2011)
+df_2015_party_pairs = merge_and_clean(df_2015_pair, party_codes_2015)
+df_2019_party_pairs = merge_and_clean(df_2019_pair, party_codes_2019)
+#df_2011_party_pairs = merge_and_clean(df_2011_pair, party_codes_2011)
+
+```
+
+```{python}
+def compute_co_voter_percentage(df):
+
+    df = df[df['party_A'] != df['party_B']]
+     # Calculate total votes for each party A
+    party_a_votes = df.groupby('party_A')['Count'].transform('sum')
+    
+    # Calculate percentage of party A votes for party B
+    df['percentage'] = (df['Count'] / party_a_votes) * 100
+
+    return df
+
+df_2011_party_pairs_nw = compute_co_voter_percentage(df_2011_party_pairs)
+df_2015_party_pairs_nw = compute_co_voter_percentage(df_2015_party_pairs)
+df_2019_party_pairs_nw = compute_co_voter_percentage(df_2019_party_pairs)
+df_2023_party_pairs_nw = compute_co_voter_percentage(df_2023_party_pairs)
+
+```
+
+```{python}
+
+df_2011_party= df_2011_party_pairs.merge(df_2011_total_voters, how='left', left_on ='Party_Code_A', 
+                                         right_on= 'Party_id')
+df_2015_party= df_2015_party_pairs.merge(df_2015_total_voters, how='left', left_on ='Party_Code_A', 
+                                         right_on= 'Party_id')
+df_2019_party= df_2019_party_pairs.merge(df_2019_total_voters, how='left', left_on ='Party_Code_A', 
+                                         right_on= 'Party_id')
+df_2023_party= df_2023_party_pairs.merge(df_2023_total_voters, how='left', left_on ='Party_Code_A', 
+                                         right_on= 'Party_id')
+df_2011_party['Percentage_A_voted_B'] = (df_2011_party['Count'] / df_2011_party['Total_voters']) *100
+df_2015_party['Percentage_A_voted_B'] = (df_2015_party['Count'] / df_2015_party['Total_voters']) *100
+df_2019_party['Percentage_A_voted_B'] = (df_2019_party['Count'] / df_2019_party['Total_voters']) *100
+df_2023_party['Percentage_A_voted_B'] = (df_2023_party['Count'] / df_2023_party['Total_voters']) *100
+df_2011_party.drop(columns=['Total_voters'])
+df_2015_party.drop(columns=['Total_voters'])
+df_2019_party.drop(columns=['Total_voters'])
+df_2023_party.drop(columns=['Total_voters'])
+df_2011_party= df_2011_party.merge(df_2011_total_voters, how='left', left_on ='Party_Code_B', 
+                                         right_on= 'Party_id')
+df_2015_party= df_2015_party.merge(df_2015_total_voters, how='left', left_on ='Party_Code_B', 
+                                         right_on= 'Party_id')
+df_2019_party= df_2019_party.merge(df_2019_total_voters, how='left', left_on ='Party_Code_B', 
+                                         right_on= 'Party_id')
+df_2023_party= df_2023_party.merge(df_2023_total_voters, how='left', left_on ='Party_Code_B', 
+                                         right_on= 'Party_id')
+df_2011_party['Percentage_B_voted_A'] = (df_2011_party['Count'] / df_2011_party['Total_voters_y']) *100
+df_2015_party['Percentage_B_voted_A'] = (df_2015_party['Count'] / df_2015_party['Total_voters_y']) *100
+df_2019_party['Percentage_B_voted_A'] = (df_2019_party['Count'] / df_2019_party['Total_voters_y']) *100
+df_2023_party['Percentage_B_voted_A'] = (df_2023_party['Count'] / df_2023_party['Total_voters_y']) *100
+
+df_2011_party = df_2011_party[['party_A', 'party_B', 'Count', 'Percentage_A_voted_B', 'Percentage_B_voted_A']]
+df_2015_party = df_2015_party[['party_A', 'party_B', 'Count', 'Percentage_A_voted_B', 'Percentage_B_voted_A']]
+df_2019_party = df_2019_party[['party_A', 'party_B', 'Count', 'Percentage_A_voted_B', 'Percentage_B_voted_A']]
+df_2023_party = df_2023_party[['party_A', 'party_B', 'Count', 'Percentage_A_voted_B', 'Percentage_B_voted_A']]
+
+
+def compute_party_voting_percentages(df_party_pairs, df_total_voters):
+    # Merge with total voters for party A
+    df_party = df_party_pairs.merge(df_total_voters, how='left', left_on='Party_Code_A', right_on='Party_id')
+    
+    # Calculate percentage of party A voted for party B
+    df_party['Percentage_A_voted_B'] = (df_party['Count'] / df_party['Total_voters']) * 100
+    
+    # Drop unnecessary columns
+    df_party.drop(columns=['Total_voters'], inplace=True)
+    
+    # Merge with total voters for party B
+    df_party = df_party.merge(df_total_voters, how='left', left_on='Party_Code_B', right_on='Party_id', suffixes=('_A', '_B'))
+    
+    # Calculate percentage of party B voted for party A
+    df_party['Percentage_B_voted_A'] = (df_party['Count'] / df_party['Total_voters']) * 100
+    
+    # Drop unnecessary columns
+    df_party.drop(columns=['Total_voters'], inplace=True)
+    
+    # Select the desired columns
+    df_party_result = df_party[['party_A', 'party_B', 'Count', 'Percentage_A_voted_B', 'Percentage_B_voted_A']]
+    
+    return df_party_result
+```
+

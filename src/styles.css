@@ -1,0 +1,22 @@
+/* styles.css */
+.reveal .slides {
+    font-size: 18px; /* Adjust the font size for slides */
+    line-height: 1.5; /* Adjust the line height for slides */
+  }
+  
+  .reveal pre code {
+    font-size: 16px; /* Adjust the font size for code blocks */
+  }
+  
+  .reveal h1 {
+    font-size: 32px; /* Adjust the font size for headers */
+  }
+  
+  .reveal h2 {
+    font-size: 28px; /* Adjust the font size for sub-headers */
+  }
+  
+  .reveal p {
+    font-size: 18px; /* Adjust the font size for paragraphs */
+  }
+  
